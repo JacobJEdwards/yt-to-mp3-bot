@@ -2,6 +2,7 @@ import redis
 import requests
 import logging
 import os
+import youtube_dl
 
 from telegram import *
 
@@ -23,7 +24,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 r = redis.Redis()
-PAYMENT_TOKEN = ''
+PAYMENT_TOKEN = '284685063:TEST:NjE4ZTUwZjU3YjI3'
+
+options = {
+        'format':'bestaudio/best',
+        'keepvideo':False,
+        'outtmpl':filename,
+    }
 
 
 async def start(update: Update, context: CallbackContext) -> None:
@@ -36,7 +43,7 @@ async def start(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text(f'Hello {userName}\n\nWelcome to Youtube Video to MP3 Bot!\n\nThis bot is'
                                         f' used convert a Youtube video _(ie a music video)_ to an MP3 file!\n\n'
                                         f'To begin, simply send a Youtube video link, and the transcript will be '
-                                        f'sent to you.\n\n', parse_mode=Mark)
+                                        f'sent to you.\n\n', parse_mode='Markdown')
 
     if not r.sismember('premium', userID):
         await update.message.reply_text(f'You have {8 - numUses} uses remaining on your free trial.\n\nOr upgrade to '
@@ -89,6 +96,7 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
 
     if numUses > 7 and not r.sismember('premium', userID):
         # send message to user
+        # send inline keyboard premium button
         return
 
     url = update.effective_message.text
@@ -96,9 +104,22 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         # inform user not video link
         return
 
+    video_info = youtube_dl.YoutubeDL().extract_info(
+        url=url, download=False
+    )
+    filename = f"{video_info['title']}.mp3"
+
+    with youtube_dl.YoutubeDL(options) as ydl:
+        ydl.download([video_info['webpage_url']])
+
 
 async def button(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
 
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    await query.answer()
+    await query.edit_message_text(text="Thank you for choosing to upgrade!\nPay below:")
+    await upgrade(update, context)
 
 
 # sends invoice to upgrade user to premium
@@ -152,9 +173,8 @@ async def upgradeSuccessful(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('Upgrade successful! Welcome to premium.', reply_markup=menu_markup)
 
 
-
 def main() -> None:
-    application = Application.builder().token("").build()
+    application = Application.builder().token(***REMOVED***).build()
 
     # basic command handlers
     application.add_handler(CommandHandler('start', start))

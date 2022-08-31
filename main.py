@@ -33,8 +33,9 @@ async def start(update: Update, context: CallbackContext) -> None:
     # gets user info and number of uses ect
     userName = update.effective_user.first_name
     userID = update.effective_user.id
-    userKey = f'video2mp3:{userID}'
-    numUses = r.llen(userKey)
+
+    numUses = r.zscore('YTtoMP3Bot', userID)
+    numUses = 0 if numUses is None else int(numUses)
 
     if numUses == 0:
         await update.message.reply_text(f'Hello {userName}\n\nWelcome to Youtube Video to MP3 Bot!\n\nThis bot is'
@@ -92,8 +93,8 @@ async def checkURL(update: Update, context: CallbackContext, url) -> bool:
 # downloads YouTube video as mp3 file and sends it to the user
 async def getMP3(update: Update, context: CallbackContext) -> None:
     userID = update.effective_user.id
-    userKey = f'video2mp3:{userID}'
-    numUses = r.llen(userKey)
+    numUses = r.zscore('YTtoMP3Bot', userID)
+    numUses = 0 if numUses is None else int(numUses)
 
     if numUses > 7 and not r.sismember('premium', userID):
         await update.message.reply_text('Sorry, you have reached the free trial limit.\n\nPlease update to premium '
@@ -113,7 +114,8 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
                                         'use /help for support or contact me @JacobJEdwards')
         return
 
-    message = await context.bot.send_message(chat_id=userID, text='_fetching mp3 file..._', parse_mode='Markdown')
+    message = await context.bot.send_message(chat_id=userID, text='_fetching video data..._', parse_mode='Markdown')
+    messageID:  int = message['message_id']
 
     try:
         # gets video info
@@ -129,6 +131,9 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
             'outtmpl': filename,
         }
 
+        await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
+                                            text='_Downloading file..._', parse_mode='Markdown')
+
         # downloads mp3 file with specified options
         with youtube_dl.YoutubeDL(options) as ydl:
             ydl.download([video_info['webpage_url']])
@@ -136,11 +141,13 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         with zipfile.ZipFile(zipfilename, 'w', zipfile.ZIP_DEFLATED) as myzip:
             myzip.write(filename)
 
-        await context.bot.edit_message_text(chat_id=userID, message_id=message['message_id'], text='MP3 File Zipped:')
+        await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
+                                            text='_Sending file..._', parse_mode='Markdown')
         await context.bot.send_document(chat_id=userID, document=open(zipfilename, 'rb'))
+        await context.bot.edit_message_text(chat_id=userID, message_id=messageID, text='MP3 File Zipped:')
 
     except:
-        await context.bot.edit_message_text(chat_id=userID, message_id=message['message_id'],
+        await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
                                             text='Sorry, I\'m having a difficult time downloading that video.'
                                                  '\nPlease try again:')
         if os.path.exists(filename):
@@ -151,7 +158,7 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         return
 
     # logs use to database
-    r.lpush(userKey, url)
+    r.zincrby('YTtoMP3Bot', 1, userID)
 
     # removes file after being sent
     if os.path.exists(filename):

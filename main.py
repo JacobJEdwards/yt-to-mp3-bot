@@ -2,7 +2,8 @@ import redis
 import requests
 import logging
 import os
-import youtube_dl
+import yt_dlp as youtube_dl
+import zipfile
 
 from telegram import *
 
@@ -26,23 +27,19 @@ logger = logging.getLogger(__name__)
 r = redis.Redis()
 PAYMENT_TOKEN = '284685063:TEST:NjE4ZTUwZjU3YjI3'
 
-options = {
-        'format':'bestaudio/best',
-        'keepvideo':False,
-        'outtmpl':filename,
-    }
 
-
+# basic start function
 async def start(update: Update, context: CallbackContext) -> None:
+    # gets user info and number of uses ect
     userName = update.effective_user.first_name
     userID = update.effective_user.id
     userKey = f'video2mp3:{userID}'
-    numUses = r.scard(userKey)
+    numUses = r.llen(userKey)
 
     if numUses == 0:
         await update.message.reply_text(f'Hello {userName}\n\nWelcome to Youtube Video to MP3 Bot!\n\nThis bot is'
                                         f' used convert a Youtube video _(ie a music video)_ to an MP3 file!\n\n'
-                                        f'To begin, simply send a Youtube video link, and the transcript will be '
+                                        f'To begin, simply send a Youtube video link, and the file will be '
                                         f'sent to you.\n\n', parse_mode='Markdown')
 
     if not r.sismember('premium', userID):
@@ -66,11 +63,13 @@ async def start(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('Send a URL to get started, or select an option below:', reply_markup=menu_markup)
 
 
+# help and support for user
 async def helpInfo(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('Help')
     # to expand
 
 
+# arbitrary function
 async def sendURL(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text('Send a Youtube Video URL to convert to an MP3 file:')
 
@@ -81,45 +80,98 @@ async def unknownCommand(update: Update, context: CallbackContext) -> None:
                                     'ct the subtitle transcript!')
 
 
+# checks that the url is a valid youtube video link
 async def checkURL(update: Update, context: CallbackContext, url) -> bool:
-    # if this url is valid, if returns true (status code 200, 404 means not true)
+    # if this url is valid, it returns true (status code 200, 404 means not true)
     testURL = f'https://www.youtube.com/oembed?url={url}'
     checkLink = requests.get(testURL)
 
     return checkLink.status_code == 200
 
 
+# downloads YouTube video as mp3 file and sends it to the user
 async def getMP3(update: Update, context: CallbackContext) -> None:
     userID = update.effective_user.id
     userKey = f'video2mp3:{userID}'
-    numUses = r.scard(userKey)
+    numUses = r.llen(userKey)
 
     if numUses > 7 and not r.sismember('premium', userID):
-        # send message to user
-        # send inline keyboard premium button
+        await update.message.reply_text('Sorry, you have reached the free trial limit.\n\nPlease update to premium '
+                                        'for unlimited use')
+        # sends inline keyboard to upgrade - callback data as keyboard used for other things
+        inlineKeyboard = [[InlineKeyboardButton('Upgrade to Premium', callback_data='upgrade')]]
+        reply_markup = InlineKeyboardMarkup(inlineKeyboard)
+
+        await update.message.reply_text('Click:', reply_markup=reply_markup)
         return
 
     url = update.effective_message.text
-    if not checkURL(update, context, url):
-        # inform user not video link
+
+    # if url is not valid, alerts the user then returns
+    if not await checkURL(update, context, url):
+        await update.message.reply_text('Sorry, this is not a valid YouTube video link.\nPlease send a valid link, '
+                                        'use /help for support or contact me @JacobJEdwards')
         return
 
-    video_info = youtube_dl.YoutubeDL().extract_info(
-        url=url, download=False
-    )
-    filename = f"{video_info['title']}.mp3"
+    message = await context.bot.send_message(chat_id=userID, text='_fetching mp3 file..._', parse_mode='Markdown')
 
-    with youtube_dl.YoutubeDL(options) as ydl:
-        ydl.download([video_info['webpage_url']])
+    try:
+        # gets video info
+        video_info = youtube_dl.YoutubeDL().extract_info(
+            url=url, download=False
+        )
+        filename = f"{video_info['title']}.mp3"
+        zipfilename = f"{video_info['title']}.zip"
+
+        options = {
+            'format': 'bestaudio/best',
+            'keepvideo': False,
+            'outtmpl': filename,
+        }
+
+        # downloads mp3 file with specified options
+        with youtube_dl.YoutubeDL(options) as ydl:
+            ydl.download([video_info['webpage_url']])
+
+        with zipfile.ZipFile(zipfilename, 'w', zipfile.ZIP_DEFLATED) as myzip:
+            myzip.write(filename)
+
+        await context.bot.edit_message_text(chat_id=userID, message_id=message['message_id'], text='MP3 File Zipped:')
+        await context.bot.send_document(chat_id=userID, document=open(zipfilename, 'rb'))
+
+    except:
+        await context.bot.edit_message_text(chat_id=userID, message_id=message['message_id'],
+                                            text='Sorry, I\'m having a difficult time downloading that video.'
+                                                 '\nPlease try again:')
+        if os.path.exists(filename):
+            os.remove(filename)
+        if os.path.exists(zipfilename):
+            os.remove(zipfilename)
+
+        return
+
+    # logs use to database
+    r.lpush(userKey, url)
+
+    # removes file after being sent
+    if os.path.exists(filename):
+        os.remove(filename)
+    if os.path.exists(zipfilename):
+        os.remove(zipfilename)
 
 
+# handles inline keyboard callbacks
 async def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
     await query.answer()
-    await query.edit_message_text(text="Thank you for choosing to upgrade!\nPay below:")
-    await upgrade(update, context)
+
+    if query.data == 'upgrade':
+        await query.edit_message_text(text="Thank you for choosing to upgrade!\nPay below:")
+        await upgrade(update, context)
+    else:
+        await query.edit_message_text(text="Invalid option")
 
 
 # sends invoice to upgrade user to premium

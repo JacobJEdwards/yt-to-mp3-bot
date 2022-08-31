@@ -145,26 +145,19 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
                                             text='_Sending file..._', parse_mode='Markdown')
         await context.bot.send_document(chat_id=userID, document=open(zipfilename, 'rb'))
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID, text='MP3 File Zipped:')
+        # logs use to database
+        r.zincrby('YTtoMP3Bot', 1, userID)
 
     except:
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
                                             text='Sorry, I\'m having a difficult time downloading that video.'
                                                  '\nPlease try again:')
+
+    finally:
         if os.path.exists(filename):
             os.remove(filename)
         if os.path.exists(zipfilename):
             os.remove(zipfilename)
-
-        return
-
-    # logs use to database
-    r.zincrby('YTtoMP3Bot', 1, userID)
-
-    # removes file after being sent
-    if os.path.exists(filename):
-        os.remove(filename)
-    if os.path.exists(zipfilename):
-        os.remove(zipfilename)
 
 
 # handles inline keyboard callbacks

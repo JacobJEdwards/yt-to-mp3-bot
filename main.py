@@ -135,11 +135,10 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         zipfilename = f"{video_info['title']}.zip"
 
         options = {
-            'format': 'bestaudio/mp3',
+            'format': 'm4a/bestaudio/mp3',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
-                'preferredquality': '192',
             }],
             'keepvideo': False,
             'outtmpl': filename,

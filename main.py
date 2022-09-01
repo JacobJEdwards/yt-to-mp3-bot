@@ -6,6 +6,7 @@ import yt_dlp as youtube_dl
 import zipfile
 
 from telegram import *
+from telegram.error import TimedOut
 
 from telegram.ext import (
     Application,
@@ -122,7 +123,7 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         video_info = youtube_dl.YoutubeDL().extract_info(
             url=url, download=False
         )
-        filename = f"{video_info['title']}.mp3"
+        filename = f"{video_info['title']}.wav"
         zipfilename = f"{video_info['title']}.zip"
 
         options = {
@@ -138,19 +139,30 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         with youtube_dl.YoutubeDL(options) as ydl:
             ydl.download([video_info['webpage_url']])
 
+        await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
+                                            text='_Zipping file..._', parse_mode='Markdown')
+
         with zipfile.ZipFile(zipfilename, 'w', zipfile.ZIP_DEFLATED) as myzip:
             myzip.write(filename)
 
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
                                             text='_Sending file..._', parse_mode='Markdown')
-        await context.bot.send_document(chat_id=userID, document=open(zipfilename, 'rb'))
+        await context.bot.send_document(chat_id=userID, document=open(zipfilename, 'rb'),
+                                        pool_timeout=5, connect_timeout=20, read_timeout=20, write_timeout=40)
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID, text='MP3 File Zipped:')
         # logs use to database
         r.zincrby('YTtoMP3Bot', 1, userID)
 
-    except:
+    except TimedOut:
+        logger.error('TimedOut error')
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
-                                            text='Sorry, I\'m having a difficult time downloading that video.'
+                                            text='Sorry, I\'m having a difficult time sending that video.'
+                                                 '\nPlease try again:')
+
+    except Exception as e:
+        logger.error('unexpected error while running handler callback: %s', str(e), exc_info=True)
+        await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
+                                            text='Sorry, I\'m having a difficult time sending that video.'
                                                  '\nPlease try again:')
 
     finally:

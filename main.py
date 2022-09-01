@@ -5,7 +5,15 @@ import zipfile
 import redis
 import requests
 import yt_dlp as youtube_dl
-from telegram import *
+from telegram import (
+    KeyboardButton,
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    InlineKeyboardMarkup,
+    Update,
+    LabeledPrice,
+    MessageEntity
+)
 from telegram.error import TimedOut
 from telegram.ext import (
     CommandHandler,
@@ -81,7 +89,7 @@ async def unknownCommand(update: Update, context: CallbackContext) -> None:
                                     'ct the subtitle transcript!')
 
 
-# checks that the url is a valid youtube video link
+# checks that the url is a valid YouTube video link
 async def checkURL(update: Update, context: CallbackContext, url) -> bool:
     # if this url is valid, it returns true (status code 200, 404 means not true)
     testURL = f'https://www.youtube.com/oembed?url={url}'

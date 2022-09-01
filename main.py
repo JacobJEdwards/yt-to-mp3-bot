@@ -148,7 +148,7 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
                                             text='_Downloading file..._', parse_mode='Markdown')
 
-        # downloads wav file with specified options
+        # downloads mp3 file with specified options
         with youtube_dl.YoutubeDL(options) as ydl:
             ydl.download([video_info['webpage_url']])
 

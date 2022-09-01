@@ -1,13 +1,12 @@
-import redis
-import requests
 import logging
 import os
-import yt_dlp as youtube_dl
 import zipfile
 
+import redis
+import requests
+import yt_dlp as youtube_dl
 from telegram import *
 from telegram.error import TimedOut
-
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -116,18 +115,24 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         return
 
     message = await context.bot.send_message(chat_id=userID, text='_fetching video data..._', parse_mode='Markdown')
-    messageID:  int = message['message_id']
+    messageID: int = message['message_id']
 
     try:
         # gets video info
         video_info = youtube_dl.YoutubeDL().extract_info(
             url=url, download=False
         )
-        filename = f"{video_info['title']}.wav"
+
+        filename = f"{video_info['title']}.mp3"
         zipfilename = f"{video_info['title']}.zip"
 
         options = {
-            'format': 'bestaudio/best',
+            'format': 'bestaudio/mp3',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
             'keepvideo': False,
             'outtmpl': filename,
         }
@@ -135,7 +140,7 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
                                             text='_Downloading file..._', parse_mode='Markdown')
 
-        # downloads mp3 file with specified options
+        # downloads wav file with specified options
         with youtube_dl.YoutubeDL(options) as ydl:
             ydl.download([video_info['webpage_url']])
 
@@ -148,7 +153,7 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID,
                                             text='_Sending file..._', parse_mode='Markdown')
         await context.bot.send_document(chat_id=userID, document=open(zipfilename, 'rb'),
-                                        pool_timeout=5, connect_timeout=20, read_timeout=20, write_timeout=40)
+                                        pool_timeout=5, connect_timeout=30, read_timeout=30, write_timeout=45)
         await context.bot.edit_message_text(chat_id=userID, message_id=messageID, text='MP3 File Zipped:')
         # logs use to database
         r.zincrby('YTtoMP3Bot', 1, userID)

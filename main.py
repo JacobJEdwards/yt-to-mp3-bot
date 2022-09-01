@@ -8,14 +8,14 @@ import yt_dlp as youtube_dl
 from telegram import *
 from telegram.error import TimedOut
 from telegram.ext import (
-    Application,
     CommandHandler,
     MessageHandler,
     filters,
     CallbackContext,
     CallbackQueryHandler,
     ContextTypes,
-    PreCheckoutQueryHandler
+    PreCheckoutQueryHandler,
+    ApplicationBuilder
 )
 
 # Enable logging
@@ -243,7 +243,7 @@ async def upgradeSuccessful(update: Update, context: CallbackContext) -> None:
 
 
 def main() -> None:
-    application = Application.builder().token(***REMOVED***).build()
+    application = ApplicationBuilder().token(***REMOVED***).build()
 
     # basic command handlers
     application.add_handler(CommandHandler('start', start))

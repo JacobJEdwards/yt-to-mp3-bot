@@ -90,7 +90,7 @@ async def unknownCommand(update: Update, context: CallbackContext) -> None:
 
 
 # checks that the url is a valid YouTube video link
-async def checkURL(update: Update, context: CallbackContext, url) -> bool:
+async def checkURL(url) -> bool:
     # if this url is valid, it returns true (status code 200, 404 means not true)
     testURL = f'https://www.youtube.com/oembed?url={url}'
     checkLink = requests.get(testURL)
@@ -117,7 +117,7 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
     url = update.effective_message.text
 
     # if url is not valid, alerts the user then returns
-    if not await checkURL(update, context, url):
+    if not await checkURL(url):
         await update.message.reply_text('Sorry, this is not a valid YouTube video link.\nPlease send a valid link, '
                                         'use /help for support or contact me @JacobJEdwards')
         return

@@ -33,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 r = redis.Redis()
-PAYMENT_TOKEN = '284685063:TEST:NjE4ZTUwZjU3YjI3'
+PAYMENT_TOKEN = ***REMOVED***
 
 
 # basic start function

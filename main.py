@@ -26,6 +26,14 @@ from telegram.ext import (
     ApplicationBuilder
 )
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+PAYMENT_TOKEN: str = os.getenv('PAYMENT_TOKEN', '')
+BOT_API_TOKEN: str = os.getenv('BOT_API_TOKEN', '')
+
+
 # Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -33,7 +41,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 r = redis.Redis()
-PAYMENT_TOKEN = ***REMOVED***
 
 
 # basic start function
@@ -250,7 +257,7 @@ async def upgradeSuccessful(update: Update, context: CallbackContext) -> None:
 
 
 def main() -> None:
-    application = ApplicationBuilder().token(***REMOVED***).build()
+    application = ApplicationBuilder().token(BOT_API_TOKEN).build()
 
     # basic command handlers
     application.add_handler(CommandHandler('start', start))

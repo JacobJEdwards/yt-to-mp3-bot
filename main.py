@@ -1,6 +1,8 @@
 import logging
 import os
 import zipfile
+from pathlib import Path
+
 
 import redis
 import requests
@@ -233,10 +235,8 @@ async def getMP3(update: Update, context: CallbackContext) -> None:
         )
 
     finally:
-        if os.path.exists(filename):
-            os.remove(filename)
-        if os.path.exists(zipfilename):
-            os.remove(zipfilename)
+        Path(filename).unlink(missing_ok=True)
+        Path(zipfilename).unlink(missing_ok=True)
 
 
 # handles inline keyboard callbacks
